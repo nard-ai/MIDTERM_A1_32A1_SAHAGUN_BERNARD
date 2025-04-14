@@ -1,0 +1,6 @@
+@SlotMachineBackend_HostAddress = http://localhost:5104
+
+
+
+###
+GET http://localhost:5104/validate-player?studentNumber=C345678

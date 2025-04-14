@@ -1,7 +1,7 @@
-'use client';
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { FaStar, FaGem, FaHeart, FaLaptopCode, FaQuestion } from 'react-icons/fa';
+"use client";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { FaStar, FaGem, FaHeart, FaLaptopCode, FaQuestion } from "react-icons/fa";
 
 const spinningMessages = [
   "Spinning... This could be your lucky compile!",
@@ -29,8 +29,6 @@ const gameOverMessages = [
   "Better luck next time, your code ran out of retries!"
 ];
 
-
-// Define symbols, including a computer science–themed symbol.
 const symbols = [
   { icon: <FaStar className="text-yellow-400" />, name: 'Star' },
   { icon: <FaGem className="text-blue-400" />, name: 'Gem' },
@@ -39,50 +37,9 @@ const symbols = [
   { icon: <FaQuestion className="text-red-400" />, name: 'Question' },
 ];
 
-// Utility to get a random symbol.
 const getRandomSymbol = () => symbols[Math.floor(Math.random() * symbols.length)];
 
-// ----- Confetti Component -----
-// Renders animated confetti using Framer Motion.
-const Confetti = () => {
-  const pieces = new Array(30).fill(0);
-  const colors = ["#FFC700", "#FF0000", "#2E3192", "#41BBC7"];
-  
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden">
-      {pieces.map((_, index) => {
-        const left = Math.random() * 100;
-        const delay = Math.random() * 0.5;
-        const duration = 2 + Math.random() * 2;
-        const size = 5 + Math.random() * 10;
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        
-        return (
-          <motion.div
-            key={index}
-            className="absolute rounded-full"
-            initial={{ opacity: 0, y: -20, rotate: 0 }}
-            animate={{
-              opacity: [0, 1, 0],
-              y: [0, window.innerHeight * 1.2],
-              rotate: [0, 360]
-            }}
-            transition={{ duration, delay, ease: "easeInOut" }}
-            style={{
-              left: `${left}%`,
-              width: size,
-              height: size,
-              backgroundColor: color,
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-};
-
 const SlotMachine = () => {
-  // Initialize reels with three random symbols.
   const [reels, setReels] = useState([
     getRandomSymbol(),
     getRandomSymbol(),
@@ -93,34 +50,31 @@ const SlotMachine = () => {
   const [spinSound, setSpinSound] = useState(null);
   const [gameOverSound, setGameOverSound] = useState(null);
   const [bgMusic, setBgMusic] = useState(null);
-  
   const [remainingRetries, setRemainingRetries] = useState(3);
   const [statusMessage, setStatusMessage] = useState('');
   const [userName, setUserName] = useState('');
-  const [isUserNameSet, setIsUserNameSet] = useState(false); // Has the user entered their name?
-  const [hasWon, setHasWon] = useState(false); // Has the player won?
-  
+  const [isUserNameSet, setIsUserNameSet] = useState(false);
+  const [hasWon, setHasWon] = useState(false);
+  const [cooldownEndTime, setCooldownEndTime] = useState(null);
+  const [timeLeft, setTimeLeft] = useState('');
+
   useEffect(() => {
-    // Create and set up audio elements.
     const winAudio = new Audio('/win.wav');
     const spinAudio = new Audio('/spin.wav');
     const gameOverAudio = new Audio('/game-over.wav');
-    const introAudio = new Audio('/intro.wav'); // Use intro.wav for the initial screen.
+    const introAudio = new Audio('/intro.wav');
     introAudio.loop = true;
-    
+
     setWinSound(winAudio);
     setSpinSound(spinAudio);
     setGameOverSound(gameOverAudio);
     setBgMusic(introAudio);
   }, []);
 
-  // Attach a one-time click listener to enable the intro audio after a user interaction.
   useEffect(() => {
     if (bgMusic && !isUserNameSet) {
       const enableAudio = () => {
-        bgMusic.play().catch((err) =>
-          console.error('Intro audio play error:', err)
-        );
+        bgMusic.play().catch((err) => console.error('Intro audio play error:', err));
         window.removeEventListener('click', enableAudio);
       };
       window.addEventListener('click', enableAudio);
@@ -128,71 +82,115 @@ const SlotMachine = () => {
     }
   }, [bgMusic, isUserNameSet]);
 
+  useEffect(() => {
+    if (isUserNameSet) {
+      const storedCooldown = localStorage.getItem(`cooldown_${userName}`);
+      if (storedCooldown && parseInt(storedCooldown) > Date.now()) {
+        setCooldownEndTime(parseInt(storedCooldown));
+      }
+    }
+  }, [isUserNameSet, userName]);
+
+  useEffect(() => {
+    if (!cooldownEndTime) return;
+
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const diff = cooldownEndTime - now;
+
+      if (diff <= 0) {
+        clearInterval(interval);
+        setCooldownEndTime(null);
+        localStorage.removeItem(`cooldown_${userName}`);
+        setRemainingRetries(3);
+        setTimeLeft('');
+      } else {
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff / (1000 * 60)) % 60);
+        const seconds = Math.floor((diff / 1000) % 60);
+        setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [cooldownEndTime, userName]);
+
   const playWinSound = () => {
     if (winSound) {
       winSound.currentTime = 0;
-      winSound.play().catch((err) =>
-        console.error('Win sound play error:', err)
-      );
+      winSound.play().catch((err) => console.error('Win sound play error:', err));
     }
   };
 
   const playSpinSound = () => {
     if (spinSound) {
       spinSound.currentTime = 0;
-      spinSound.play().catch((err) =>
-        console.error('Spin sound play error:', err)
-      );
+      spinSound.play().catch((err) => console.error('Spin sound play error:', err));
+    }
+  };
+
+  const saveGameResult = async (outcome) => {
+    try {
+      const response = await fetch("http://localhost:5104/save-game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentNumber: userName, outcome }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Failed to save game result:", errorText);
+      } else {
+        console.log("Game result saved.");
+      }
+    } catch (err) {
+      console.error("Error saving game result:", err);
     }
   };
 
   const spin = () => {
-    if (spinning || remainingRetries === 0) return;
-    
+    if (spinning || remainingRetries === 0 || cooldownEndTime) return;
+
     setSpinning(true);
     setStatusMessage(spinningMessages[Math.floor(Math.random() * spinningMessages.length)]);
     playSpinSound();
-    
-    // Calculate spin duration based on spinSound's duration (at least 1 second) multiplied by 800.
-    const spinDuration = Math.max(spinSound.duration, 1) * 800;
-    
+
+    const spinDuration = Math.max(spinSound?.duration || 1, 1) * 800;
+
     const interval = setInterval(() => {
       setReels([getRandomSymbol(), getRandomSymbol(), getRandomSymbol()]);
     }, 100);
-    
+
     setTimeout(() => {
       clearInterval(interval);
       setSpinning(false);
-      
+
       let isWin = false;
-      
-      // Special condition: if the player's name is 'Nin', force a win.
+
       if (userName === 'Nin') {
         const winSymbol = symbols[Math.floor(Math.random() * symbols.length)];
         setReels([winSymbol, winSymbol, winSymbol]);
         isWin = true;
       } else {
-        // Check if all three reels have the same symbol.
-        isWin =
-          reels[0]?.name === reels[1]?.name &&
-          reels[1]?.name === reels[2]?.name;
+        isWin = reels[0]?.name === reels[1]?.name && reels[1]?.name === reels[2]?.name;
       }
-      
+
       if (isWin) {
         playWinSound();
         setStatusMessage('Congratulations! You win!');
         setHasWon(true);
+        saveGameResult("Win");
       } else {
         setRemainingRetries((prev) => {
           const updatedRetries = prev - 1;
           if (updatedRetries === 0) {
-            if (gameOverSound) {
-              gameOverSound.currentTime = 0;
-              gameOverSound.play().catch((err) =>
-                console.error('Game over sound error:', err)
-              );
-            }
+            const cooldownTime = Date.now() + 3 * 60 * 60 * 1000;
+            localStorage.setItem(`cooldown_${userName}`, cooldownTime);
+            setCooldownEndTime(cooldownTime);
+
+            gameOverSound?.play().catch((err) => console.error('Game over sound error:', err));
             setStatusMessage(gameOverMessages[Math.floor(Math.random() * gameOverMessages.length)]);
+            saveGameResult("Retries: 0");
           } else {
             setStatusMessage('Try again?');
           }
@@ -202,7 +200,6 @@ const SlotMachine = () => {
     }, spinDuration);
   };
 
-  // handleQuit resets the game to the initial state (player name entry).
   const handleQuit = () => {
     if (bgMusic) {
       bgMusic.pause();
@@ -211,7 +208,6 @@ const SlotMachine = () => {
     resetGame();
   };
 
-  // handleNewGame resets the game after a win.
   const handleNewGame = () => {
     if (bgMusic) {
       bgMusic.pause();
@@ -220,17 +216,35 @@ const SlotMachine = () => {
     resetGame();
   };
 
-  // When the user submits their name, pause the intro audio and proceed.
-  const handleNameSubmit = (event) => {
+  const handleNameSubmit = async (event) => {
     event.preventDefault();
     if (bgMusic) {
       bgMusic.pause();
       bgMusic.currentTime = 0;
     }
-    setIsUserNameSet(true);
+
+    try {
+      const validateRes = await fetch(`http://localhost:5104/validate-player?studentNumber=${userName}`);
+      if (!validateRes.ok) {
+        alert("Invalid student number.");
+        return;
+      }
+
+      const recentRes = await fetch(`http://localhost:5104/recent-players`);
+      const recentPlayers = await recentRes.json();
+
+      if (Array.isArray(recentPlayers) && recentPlayers.includes(userName)) {
+        alert("You can only play once every 3 hours. Please try again later.");
+        return;
+      }
+
+      setIsUserNameSet(true);
+    } catch (err) {
+      console.error("Validation error:", err);
+      alert("Something went wrong. Please try again.");
+    }
   };
 
-  // Reset game state back to its initial values.
   const resetGame = () => {
     setRemainingRetries(3);
     setReels([getRandomSymbol(), getRandomSymbol(), getRandomSymbol()]);
@@ -238,11 +252,12 @@ const SlotMachine = () => {
     setUserName('');
     setIsUserNameSet(false);
     setHasWon(false);
+    setCooldownEndTime(null);
+    setTimeLeft('');
   };
 
   return (
     <div className="relative flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-gray-900 to-gray-800 text-white">
-      {/* Top right "Quit" control (only on game screen) */}
       {isUserNameSet && (
         <button
           onClick={handleQuit}
@@ -253,13 +268,9 @@ const SlotMachine = () => {
         </button>
       )}
       {!isUserNameSet ? (
-        // Initial player name entry screen with intro audio playing.
         <div className="flex flex-col items-center justify-center space-y-4">
           <h1 className="text-4xl font-bold mb-6">Enter Player Name</h1>
-          <form
-            onSubmit={handleNameSubmit}
-            className="flex flex-col items-center"
-          >
+          <form onSubmit={handleNameSubmit} className="flex flex-col items-center">
             <input
               type="text"
               value={userName}
@@ -277,7 +288,6 @@ const SlotMachine = () => {
           </form>
         </div>
       ) : (
-        // Game screen.
         <>
           <h1 className="text-4xl font-bold mb-6">Slot Machine</h1>
           <h3 className="text-2xl font-bold mb-6">Player: {userName}</h3>
@@ -300,12 +310,12 @@ const SlotMachine = () => {
                 disabled={spinning}
                 className="px-6 py-3 bg-yellow-500 text-black rounded-xl shadow-lg text-lg font-bold hover:bg-yellow-400 transition-all duration-300 disabled:opacity-50"
               >
-                New Game
+                New Game  
               </button>
             ) : remainingRetries > 0 ? (
               <button
                 onClick={spin}
-                disabled={spinning}
+                disabled={spinning || cooldownEndTime}
                 className="px-6 py-3 bg-yellow-500 text-black rounded-xl shadow-lg text-lg font-bold hover:bg-yellow-400 transition-all duration-300 disabled:opacity-50"
               >
                 {spinning ? 'Spinning...' : `Spin (${remainingRetries} left)`}
@@ -316,10 +326,14 @@ const SlotMachine = () => {
               </div>
             )}
           </div>
+          {cooldownEndTime && (
+            <p className="mt-4 text-yellow-400 text-lg font-mono">
+              Cooldown active. Try again in: {timeLeft}
+            </p>
+          )}
           {statusMessage && <p className="mt-4 text-lg">{statusMessage}</p>}
         </>
       )}
-      {hasWon && <Confetti />}
     </div>
   );
 };
