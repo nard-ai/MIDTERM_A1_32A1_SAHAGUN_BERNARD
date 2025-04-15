@@ -1,3 +1,17 @@
+BSIT 32A1
+
+
+MEMBERS:
+
+PJ, FERNANDEZ
+YSMAEL, NOCHE
+SAHAGUN, BERNARD JR.
+
+WE USED EF CORE AND SQLITE TO CREATE THE FUNCTIONALITY OF THE SLOT MACHINE GAME
+
+
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
 
 ## Getting Started
