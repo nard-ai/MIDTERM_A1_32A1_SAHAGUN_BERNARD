@@ -9,7 +9,7 @@ YSMAEL, NOCHE
 
 SAHAGUN, BERNARD JR.
 
-WE USED EF CORE AND SQLITE TO CREATE THE FUNCTIONALITY OF THE SLOT MACHINE GAME
+we conducted a group study and made the output in one laptop and for that reason we don't have any branches and WE USED EF CORE AND SQLITE TO CREATE THE FUNCTIONALITY OF THE SLOT MACHINE GAME
 
 
 
